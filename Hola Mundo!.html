@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helados Morenito | Presidente Franco</title>
+    <!-- Fuentes de Google -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- VARIABLES DE DISEÑO --- */
+        :root {
+            --primary: #3d2314;       /* Chocolate Oscuro */
+            --primary-light: #5a3822;
+            --accent: #d4a373;        /* Avellana / Dorado */
+            --accent-green: #25d366;  /* WhatsApp / Éxito */
+            --background: #fdfbf7;    /* Crema Suave */
+            --surface: #ffffff;
+            --text: #2b2b2b;
+            --text-muted: #666666;
+            --radius: 16px;
+            --font-heading: 'Playfair Display', serif;
+            --font-body: 'Outfit', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            font-family: var(--font-body);
+            line-height: 1.6;
+            padding-bottom: 80px; /* Espacio para barra de carrito en celular */
+        }
+
+        /* --- NAVBAR --- */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2rem 8%;
+            background-color: var(--surface);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .logo {
+            font-family: var(--font-heading);
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .navbar ul {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+
+        .navbar a {
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: color 0.3s;
+        }
+
+        .navbar a:hover {
+            color: var(--accent);
+        }
+
+        /* --- HERO --- */
+        .hero {
+            padding: 4rem 8% 3rem;
+            text-align: center;
+            background: linear-gradient(180deg, var(--surface) 0%, var(--background) 100%);
+        }
+
+        .badge {
+            background-color: rgba(212, 163, 115, 0.2);
+            color: var(--primary);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .hero h1 {
+            font-family: var(--font-heading);
+            font-size: 2.8rem;
+            color: var(--primary);
+            margin: 1.2rem 0 0.8rem;
+            line-height: 1.2;
+        }
+
+        .hero p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto 1.5rem;
+        }
+
+        /* --- SECCIONES --- */
+        .section {
+            padding: 3rem 8%;
+        }
+
+        .bg-light {
+            background-color: #f6eee3;
+            border-radius: var(--radius);
+            margin: 0 8%;
+            padding: 3rem 5%;
+        }
+
+        .section-title {
+            font-family: var(--font-heading);
+            font-size: 2.2rem;
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+        }
+
+        /* --- FILTROS DE MENÚ --- */
+        .menu-filters {
+            display: flex;
+            justify-content: center;
+            gap: 0.8rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: var(--surface);
+            border: 1px solid rgba(0,0,0,0.1);
+            padding: 0.6rem 1.4rem;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: var(--font-body);
+        }
+
+        .filter-btn.active, .filter-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* --- GRID DE PRODUCTOS --- */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1.8rem;
+        }
+
+        .card {
+            background: var(--surface);
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+
+        .card-tag {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            margin-bottom: 0.4rem;
+        }
+
+        .card h3 {
+            font-family: var(--font-heading);
+            color: var(--primary);
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .card p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+        }
+
+        .btn-add {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-family: var(--font-body);
+            width: 100%;
+        }
+
+        .btn-add:hover {
+            background-color: var(--primary-light);
+        }
+
+        /* --- NOSOTROS & INFO --- */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 1.5rem;
+        }
+
+        .info-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: var(--radius);
+        }
+
+        .info-card h3 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        /* --- CARRITO FLOTANTE Y MODAL --- */
+        .cart-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 0.8rem 2rem;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            z-index: 1000;
+            cursor: pointer;
+        }
+
+        .cart-bar-btn {
+            background: var(--accent-green);
+            color: white;
+            border: none;
+            padding: 0.5rem 1.2rem;
+            border-radius: 20px;
+            font-weight: 700;
+            font-family: var(--font-body);
+        }
+
+        .cart-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .cart-content {
+            background: white;
+            padding: 2rem;
+            border-radius: var(--radius);
+            width: 90%;
+            max-width: 450px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .cart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 0.8rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.8rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 1px solid #f9f9f9;
+        }
+
+        .btn-send-whatsapp {
+            width: 100%;
+            background: var(--accent-green);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 1rem;
+            font-family: var(--font-body);
+        }
+
+        /* --- FOOTER --- */
+        footer {
+            background-color: var(--primary);
+            color: white;
+            text-align: center;
+            padding: 3rem 8% 2rem;
+            margin-top: 4rem;
+        }
+
+        footer h3 {
+            font-family: var(--font-heading);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .social-links a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .navbar ul { display: none; }
+            .hero h1 { font-size: 2.2rem; }
+            .bg-light { margin: 0; padding: 2rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navegación -->
+    <header class="navbar">
+        <div class="logo">Helados Morenito<span>.</span></div>
+        <nav>
+            <ul>
+                <li><a href="#inicio">Inicio</a></li>
+                <li><a href="#menu">Menú Interactivo</a></li>
+                <li><a href="#nosotros">Sobre Nosotros</a></li>
+                <li><a href="#contacto">Ubicación</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Hero -->
+    <section id="inicio" class="hero">
+        <span class="badge">9 Años de Tradición Artesanal</span>
+        <h1>Calidad superior al mejor precio de la ciudad</h1>
+        <p>Elaboramos nuestros propios helados cotidianamente con ingredientes seleccionados. ¡Pide directo a tu casa con nuestro delivery propio!</p>
+    </section>
+
+    <!-- Menú Interactivo con Carrito -->
+    <section id="menu" class="section">
+        <h2 class="section-title">Arma tu Pedido</h2>
+        <p class="section-subtitle">Selecciona los productos y envíanos tu carrito por WhatsApp</p>
+
+        <!-- Filtros -->
+        <div class="menu-filters">
+            <button class="filter-btn active" onclick="filterMenu('todos', event)">Todos</button>
+            <button class="filter-btn" onclick="filterMenu('potes', event)">Potes y Vasos</button>
+            <button class="filter-btn" onclick="filterMenu('paletas', event)">Paletas de Fruta</button>
+            <button class="filter-btn" onclick="filterMenu('sabores', event)">Sabores de Helado</button>
+        </div>
+
+        <!-- Productos Grid -->
+        <div class="grid-container" id="product-grid">
+
+            <!-- Potes / Presentaciones -->
+            <div class="card" data-category="potes">
+                <div>
+                    <div class="card-tag">Para Compartir</div>
+                    <h3>Pote de 1 Kg</h3>
+                    <p>Elige hasta 4 sabores de nuestro catálogo artesanal.</p>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-add" onclick="addToCart('Pote de 1 Kg')">Añadir al Carrito</button>
+                </div>
+            </div>
+
+            <div class="card" data-category="potes">
+                <div>
+                    <div class="card-tag">Formato Medio</div>
+                    <h3>Pote de 1/2 Kg</h3>
+                    <p>Ideal para disfrutar en pareja. Elige hasta 3 sabores.</p>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-add" onclick="addToCart('Pote de 1/2 Kg')">Añadir al Carrito</button>
+                </div>
+            </div>
+
+            <div class="card" data-category="potes">
+                <div>
+                    <div class="card-tag">Individual</div>
+                    <h3>Cucuruchos y Vasos</h3>
+                    <p>Sirve tus sabores favoritos en cono crocante o vaso.</p>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-add" onclick="addToCart('Cucurucho / Vaso')">Añadir al Carrito</button>
+                </div>
+            </div>
+
+            <!-- Paletas -->
+            <div class="card" data-category="paletas">
+                <div>
+                    <div class="card-tag">Paleta Natural</div>
+                    <h3>Paleta de Açaí</h3>
+                    <p>Refrescante paleta 100% fruta de Açaí natural.</p>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-add" onclick="addToCart('Paleta de Açaí')">Añadir al Carrito</button>
+                </div>
+            </div>
+
+            <div class="card" data-category="paletas">
+                <div>
+                    <div class="card-tag">Paleta Natural</div>
+                    <h3>Paleta de Menta / Frutilla</h3>
+                    <p>Sabores frutales y refrescantes hechos a mano.</p>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-add" onclick="addToCart('Paleta Frutal (Menta/Frutilla)')">Añadir al Carrito</button>
+                </div>
+            </div>
+
+            <div class="card" data-category="paletas">
+                <div>
+                    <div class="card-tag">Paleta Natural</div>
+                    <h3>Paleta de Naranja / Piña / Tutti Frutti</h3>
+                    <p>Sabor frutal puro para combatir el calor.</p>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-add" onclick="addToCart('Paleta Frutal Variada')">Añadir al Carrito</button>
+                </div>
+            </div>
+
+            <!-- Sabores para acompañar -->
+            <div class="card" data-category="sabores">
+                <div>
+                    <div class="card-tag">Sabor Estrella</div>
+                    <h3>Mburucuyá</h3>
+                    <p>Elaborado con pulpa real de fruta de la pasión.</p>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-add" onclick="addToCart('Sabor Mburucuyá')">Añadir Nota de Sabor</button>
+                </div>
+            </div>
+
+            <div class="card" data-category="sabores">
+                <div>
+                    <div class="card-tag">Clásicos</div>
+                    <h3>Chocolate, Granizado y Vainilla</h3>
+                    <p>Las recetas artesanales tradicionales de la casa.</p>
+                </div>
+                <div class="card-footer">
+                    <button class="btn-add" onclick="addToCart('Sabor Clásico (Choco/Gran/Vain)')">Añadir Nota de Sabor</button>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Sección Sobre Nosotros e Información -->
+    <div id="nosotros" class="bg-light">
+        <h2 class="section-title">Sobre Helados Morenito</h2>
+        <p class="section-subtitle">Fabricación propia con 9 años de trayectoria en Presidente Franco</p>
+        
+        <div class="info-grid">
+            <div class="info-card">
+                <h3>🏭 Fabricación Propia</h3>
+                <p>Elaboramos nuestros helados diariamente para ofrecer la mejor textura y sabor sin intermediarios, lo que nos permite mantener los precios más accesibles.</p>
+            </div>
+            <div class="info-card">
+                <h3>🛵 Delivery Propio</h3>
+                <p>Contamos con transporte propio en vehículo para asegurarnos de que tu helado llegue firme y rápido a la puerta de tu casa.</p>
+            </div>
+            <div class="info-card">
+                <h3>📍 Ubicación del Local</h3>
+                <p><strong>Barrio María Auxiliadora (Fracción Santa Librada)</strong><br>Cerca del Dispensario CONAVI, Km 4 - Presidente Franco.</p>
+            </div>
+            <div class="info-card">
+                <h3>⏰ Horarios de Atención</h3>
+                <p><strong>Lunes a Sábado:</strong> 13:00 a 21:00 hs.<br><strong>Domingos:</strong> 07:00 a 21:00 hs.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra flotante del carrito -->
+    <div class="cart-bar" id="cart-bar" onclick="openCart()">
+        <span>🛒 Mi Canasto: <strong id="cart-count">0</strong> productos</span>
+        <button class="cart-bar-btn">Ver Pedido</button>
+    </div>
+
+    <!-- Ventana Emergente (Modal) del Carrito -->
+    <div class="cart-modal" id="cart-modal">
+        <div class="cart-content">
+            <div class="cart-header">
+                <h3>Tu Pedido - Helados Morenito</h3>
+                <button class="close-btn" onclick="closeCart()">&times;</button>
+            </div>
+            <div id="cart-items-list">
+                <p style="color: var(--text-muted); text-align: center;">El canasto está vacío.</p>
+            </div>
+            <button class="btn-send-whatsapp" onclick="sendToWhatsApp()">📲 Enviar Pedido por WhatsApp</button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer id="contacto">
+        <h3>Helados Morenito</h3>
+        <p>Presidente Franco, Paraguay</p>
+        
+        <div class="social-links">
+            <a href="https://wa.me/595985280239" target="_blank">WhatsApp Directo</a>
+            <a href="https://facebook.com" target="_blank">Síguenos en Facebook</a>
+        </div>
+
+        <p style="font-size: 0.85rem; opacity: 0.7; margin-top: 1rem;">
+            &copy; 2026 Helados Morenito - Todos los derechos reservados.
+        </p>
+    </footer>
+
+    <!-- Lógica JavaScript del Carrito -->
+    <script>
+        let cart = [];
+
+        function addToCart(productName) {
+            cart.push(productName);
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            document.getElementById('cart-count').innerText = cart.length;
+            const itemsList = document.getElementById('cart-items-list');
+            
+            if (cart.length === 0) {
+                itemsList.innerHTML = '<p style="color: var(--text-muted); text-align: center;">El canasto está vacío.</p>';
+                return;
+            }
+
+            const counts = {};
+            cart.forEach(item => { counts[item] = (counts[item] || 0) + 1; });
+
+            let html = '';
+            for (const [item, qty] of Object.entries(counts)) {
+                html += `
+                    <div class="cart-item">
+                        <span><strong>${qty}x</strong> ${item}</span>
+                        <button style="border:none; background:none; color:red; cursor:pointer;" onclick="removeFromCart('${item}')">Eliminar</button>
+                    </div>
+                `;
+            }
+            itemsList.innerHTML = html;
+        }
+
+        function removeFromCart(productName) {
+            const index = cart.indexOf(productName);
+            if (index > -1) {
+                cart.splice(index, 1);
+            }
+            updateCartUI();
+        }
+
+        function openCart() {
+            document.getElementById('cart-modal').style.display = 'flex';
+        }
+
+        function closeCart() {
+            document.getElementById('cart-modal').style.display = 'none';
+        }
+
+        function filterMenu(category, e) {
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            if (e && e.target) {
+                e.target.classList.add('active');
+            }
+
+            const cards = document.querySelectorAll('#product-grid .card');
+            cards.forEach(card => {
+                if (category === 'todos' || card.getAttribute('data-category') === category) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        function sendToWhatsApp() {
+            if (cart.length === 0) {
+                alert('Añade al menos un producto al canasto antes de enviar.');
+                return;
+            }
+
+            const counts = {};
+            cart.forEach(item => { counts[item] = (counts[item] || 0) + 1; });
+
+            let message = "Hola Helados Morenito! Quisiera hacer el siguiente pedido:\n\n";
+            for (const [item, qty] of Object.entries(counts)) {
+                message += `• ${qty}x ${item}\n`;
+            }
+            message += "\n¿Me confirman disponibilidad y el total a abonar para delivery/retiro?";
+
+            const encodedMessage = encodeURIComponent(message);
+            window.open(`https://wa.me/595985280239?text=${encodedMessage}`, '_blank');
+        }
+    </script>
+</body>
+</html>

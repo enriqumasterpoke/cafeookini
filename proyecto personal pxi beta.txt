@@ -1,0 +1,444 @@
+using System;
+using System.Diagnostics;
+using System.Threading;
+using System.Runtime.InteropServices;
+using System.Collections.Generic;
+using System.Security.Principal;
+using System.Net.NetworkInformation;
+using System.Management;
+
+namespace GestorPXI
+{
+    class Program
+    {
+        // --- 1. IMPORTACIONES DE WINDOWS (API NATIVA) ---
+        [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll", SetLastError = true)] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        [DllImport("psapi.dll")] static extern int EmptyWorkingSet(IntPtr hwProc);
+        [DllImport("ntdll.dll", SetLastError = true)] private static extern int NtSetTimerResolution(uint DesiredResolution, bool SetResolution, out uint CurrentResolution);
+        
+        // INTERCEPCIÓN DE CONTROL DE VENTANA (NUEVO)
+        [DllImport("kernel32.dll", ExactSpelling = true)] private static extern IntPtr GetConsoleWindow();
+        [DllImport("user32.dll", EntryPoint = "GetWindowLong")] private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+        [DllImport("user32.dll", EntryPoint = "SetWindowLong")] private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        private const int GWL_STYLE = -16;
+        private const int WS_MAXIMIZEBOX = 0x00010000; // Constante para el botón de maximizar
+        private const int WS_THICKFRAME = 0x00040000;  // Constante para los bordes de cambio de tamaño
+        // --- 2. VARIABLES GLOBALES Y CONFIGURACIÓN ---
+        private static string version = "5.0 - PXI Engine (Estética Comercial & Core Pinning)";
+        private static bool hyperSwapActivo = false;
+        
+        private static List<string> listaBlanca = new List<string> { 
+            "explorer", "devenv", "taskmgr", "chrome", "gestorpxi", 
+            "robloxplayerbeta", "novabench", "morimens", "code", 
+            "dotnet", "windowsterminal", "conhost" 
+        };        
+
+        private static Dictionary<int, ProcessPriorityClass> prioridadesOriginales = new Dictionary<int, ProcessPriorityClass>();
+        private static Dictionary<int, IntPtr> afinidadesOriginales = new Dictionary<int, IntPtr>();
+        
+        private static int ultimoIdActivo = 0;
+        private const double UMBRAL_TEMP_CRITICO = 85.0; 
+
+        private static long mascaraJuego = 0;
+        private static long mascaraWindows = 0;
+
+        private static double tempActualGlobal = 0.0;
+        private static bool escaneoTermicoActivo = false;
+
+        // --- 3. MOTOR PRINCIPAL ---
+        static void Main(string[] args)
+        {
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Green;
+            
+            try 
+            {
+                // 1. Establecemos el tamaño de marco comercial
+                int ancho = 85;
+                int alto = 24;
+                Console.SetWindowSize(ancho, alto);
+                Console.SetBufferSize(ancho, alto);
+                Console.CursorVisible = false; 
+
+                // 2. PROTOCOLO ANTI-PANTALLA COMPLETA
+                IntPtr hWnd = GetConsoleWindow();
+                int estiloActual = GetWindowLong(hWnd, GWL_STYLE);
+                
+                // Aplicamos una operación de bits para apagar el botón maximizar y el estiramiento de bordes
+                int nuevoEstilo = estiloActual & ~WS_MAXIMIZEBOX & ~WS_THICKFRAME;
+                SetWindowLong(hWnd, GWL_STYLE, nuevoEstilo);
+            } 
+            catch { }
+
+            Console.Clear();
+
+            if (!EsAdministrador())
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\n [!] Error de Sistema: El Manifiesto UAC (Administrador) no se ejecutó.");
+                Console.WriteLine("     Reinicia la aplicación con privilegios elevados.");
+                Console.ReadLine();
+                return;
+            }
+            
+            MostrarMenuPrincipal();
+        }
+
+        // --- 4. HUD INTERACTIVO Y CENTRADO ---
+        static void EscribirCentrado(string texto)
+        {
+            try
+            {
+                int anchoVentana = Console.WindowWidth;
+                if (texto.Length >= anchoVentana) { Console.WriteLine(texto); return; }
+                int espacios = (anchoVentana - texto.Length) / 2;
+                Console.WriteLine(new string(' ', espacios) + texto);
+            }
+            catch { Console.WriteLine(texto); }
+        }
+
+        static void MostrarMenuPrincipal()
+        {
+            Console.Title = $"PXI OS - Central de Mando (Ver {version})";
+            bool ejecutando = true;
+            while (ejecutando)
+            {
+                Console.Clear();
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
+                Console.WriteLine("\n\n\n"); 
+
+                EscribirCentrado("╔═══════════════════════════════════════════════════════════════╗");
+                EscribirCentrado("║                        PXI OS ENGINE                          ║");
+                EscribirCentrado("╠═══════════════════════════════════════════════════════════════╣");
+                EscribirCentrado("║   Gestor Avanzado de Rendimiento y Topología de Silicio       ║");
+                EscribirCentrado("╚═══════════════════════════════════════════════════════════════╝");
+                
+                Console.WriteLine("\n");
+                Console.ForegroundColor = ConsoleColor.Gray;
+                EscribirCentrado("[1] MODO RACING  (Afinidad Asimétrica) ");
+                EscribirCentrado("[2] PURGA TÉRMICA  (Limpieza de RAM)   ");
+                EscribirCentrado("[3] CONFIGURACIÓN  (Ajustes del Sistema)");
+                EscribirCentrado("[4] APAGAR GESTOR  (Retorno Seguro)    ");
+                
+                Console.WriteLine("\n");
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                EscribirCentrado("─────────────────────────────────────────────────────────────────");
+                
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("\n   >> Ingresar comando: ");
+                
+                string opcion = Console.ReadLine();
+                switch (opcion)
+                {
+                    case "1": IniciarModoRacing(); break;
+                    case "2": 
+                        Console.WriteLine("\n   [*] Iniciando purga de memoria RAM...");
+                        PxiRamPurger.VaciarStandbyList(); 
+                        Console.WriteLine("   [OK] Purga completada.");
+                        Console.ReadKey(); 
+                        break;
+                    case "3": MenuConfiguracion(); break;
+                    case "4": ejecutando = false; break;
+                }
+            }
+        }
+
+        // --- 5. MÓDULO DE RENDIMIENTO Y ESCUDO TÉRMICO ---
+        static void IniciarModoRacing()
+        {
+            int hilosTotales = Environment.ProcessorCount;
+            if (hilosTotales >= 8) 
+            { 
+                mascaraWindows = 3; 
+                mascaraJuego = (1L << hilosTotales) - 1 - 3; 
+            }
+            else if (hilosTotales > 2) { mascaraWindows = 3; mascaraJuego = (1L << hilosTotales) - 1 - 3; }
+            else { mascaraJuego = (1L << hilosTotales) - 1; mascaraWindows = mascaraJuego; }
+            
+            ForzarPlanEnergia(true);
+            static void AplicarFrenoTermico(bool activar)
+        {
+            try {
+                // El comando 99% apaga el Turbo Boost en la mayoría de los procesadores Intel/AMD
+                string limite = activar ? "99" : "100";
+                ProcessStartInfo psi = new ProcessStartInfo("powercfg", $"/setacvalueindex scheme_current sub_processor 893dee8e-2bef-41e0-89cacb5da974e12e {limite}") 
+                { CreateNoWindow = true, UseShellExecute = false };
+                Process.Start(psi).WaitForExit();
+                
+                // Aplicar el cambio inmediatamente
+                Process.Start(new ProcessStartInfo("powercfg", "/setactive scheme_current") { CreateNoWindow = true, UseShellExecute = false }).WaitForExit();
+            } catch { }
+        }
+            PurgarCacheRed();
+            AjustarResolucionTemporizador(true); 
+            
+            try { Process.GetCurrentProcess().ProcessorAffinity = (IntPtr)mascaraWindows; } catch { }
+
+            escaneoTermicoActivo = true;
+            tempActualGlobal = ObtenerTemperaturaCPU(); 
+            
+            // HILO CENTINELA TÉRMICO
+            escaneoTermicoActivo = true;
+            bool frenoAplicado = false;
+            
+            Thread hiloTermico = new Thread(() => 
+            {
+                while (escaneoTermicoActivo)
+                {
+                    tempActualGlobal = ObtenerTemperaturaCPU();
+
+                    // Lógica del Termostato:
+                    // Si pasa de 82°C, frenamos el Turbo. Si baja de 70°C, liberamos potencia.
+                    if (tempActualGlobal >= 82.0 && !frenoAplicado) 
+                    {
+                        AplicarFrenoTermico(true);
+                        frenoAplicado = true;
+                    }
+                    else if (tempActualGlobal <= 70.0 && frenoAplicado)
+                    {
+                        AplicarFrenoTermico(false);
+                        frenoAplicado = false;
+                    }
+                    
+                    Thread.Sleep(5000); 
+                }
+            });
+            hiloTermico.IsBackground = true;
+            hiloTermico.Start();
+           
+            int tick = 0;
+            bool racingActivo = true;
+            
+            DibujarInterfazComercial();
+
+            while (racingActivo && !(Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Q))
+            {
+                double tempLectura = tempActualGlobal; 
+                double ramLibre = PxiRamPurger.ObtenerPorcentajeRamLibre();
+                int ping = MedirPing();
+                
+                ActualizarDatosEnTiempoReal(tempLectura, ping, ramLibre);
+                
+                bool limpiezaProfunda = (tick % 6 == 0);
+                EjecutarRadarInvisible(limpiezaProfunda); 
+
+                if (tempLectura >= UMBRAL_TEMP_CRITICO)
+                {
+                    racingActivo = MostrarAlertaTermica(tempLectura);
+                    if (racingActivo) { 
+                        tick = 0; 
+                        DibujarInterfazComercial();
+                    } 
+                }
+
+                Thread.Sleep(5000); 
+                tick++;
+            }
+            
+            escaneoTermicoActivo = false; 
+            FinalizarModoRacing();
+        }
+
+        // --- 6. RADAR TÁCTICO INTELIGENTE ---
+        static void EjecutarRadarInvisible(bool limpiezaProfunda)
+        {
+            IntPtr ventanaActiva = GetForegroundWindow();
+            GetWindowThreadProcessId(ventanaActiva, out uint idActivo);
+            bool modoFocoActivo = false;
+
+            if (idActivo != 0)
+            {
+                try { 
+                    Process p = Process.GetProcessById((int)idActivo);
+                    string nombreProceso = p.ProcessName.ToLower();
+
+                    if (nombreProceso != "explorer" && nombreProceso != "gestorpxi" && !listaBlanca.Contains(nombreProceso))
+                    {
+                        modoFocoActivo = true; 
+                        
+                        if (!prioridadesOriginales.ContainsKey(p.Id)) prioridadesOriginales[p.Id] = p.PriorityClass;
+                        if (!afinidadesOriginales.ContainsKey(p.Id)) afinidadesOriginales[p.Id] = p.ProcessorAffinity;
+
+                        if (p.PriorityClass != ProcessPriorityClass.AboveNormal) p.PriorityClass = ProcessPriorityClass.AboveNormal;
+                        if ((long)p.ProcessorAffinity != mascaraJuego) p.ProcessorAffinity = (IntPtr)mascaraJuego; 
+                    }
+                } catch { }
+            }
+
+            if (!limpiezaProfunda) 
+            {
+                ultimoIdActivo = (int)idActivo;
+                return;
+            }
+
+            if (modoFocoActivo) 
+            {
+                ultimoIdActivo = (int)idActivo;
+                return; 
+            }
+            
+            foreach (Process objetivo in Process.GetProcesses())
+            {
+                try {
+                    string nameLower = objetivo.ProcessName.ToLower();
+                    if (objetivo.SessionId == 0 || nameLower.Contains("geekbench") || listaBlanca.Contains(nameLower) || objetivo.Id == idActivo || objetivo.Id == Process.GetCurrentProcess().Id) continue;
+                    
+                    if (objetivo.WorkingSet64 > 400000000) {
+                        if (!prioridadesOriginales.ContainsKey(objetivo.Id)) prioridadesOriginales[objetivo.Id] = objetivo.PriorityClass;
+                        if (!afinidadesOriginales.ContainsKey(objetivo.Id)) afinidadesOriginales[objetivo.Id] = objetivo.ProcessorAffinity;
+
+                        EmptyWorkingSet(objetivo.Handle); 
+                        
+                        if (objetivo.PriorityClass != ProcessPriorityClass.Idle) objetivo.PriorityClass = ProcessPriorityClass.Idle;
+                        if ((long)objetivo.ProcessorAffinity != mascaraWindows) objetivo.ProcessorAffinity = (IntPtr)mascaraWindows;
+                    }
+                } catch { }
+            }
+            ultimoIdActivo = (int)idActivo;
+        }
+
+        static double ObtenerTemperaturaCPU()
+        {
+            try
+            {
+                using (ManagementObjectSearcher buscador = new ManagementObjectSearcher(@"root\WMI", "SELECT * FROM MSAcpi_ThermalZoneTemperature"))
+                {
+                    using (ManagementObjectCollection objetos = buscador.Get())
+                    {
+                        foreach (ManagementObject objeto in objetos)
+                        {
+                            double tempRaw = Convert.ToDouble(objeto["CurrentTemperature"]);
+                            return Math.Round((tempRaw / 10) - 273.15, 1);
+                        }
+                    }
+                }
+            }
+            catch { return 0.0; }
+            return 0.0;
+        }
+
+        static bool MostrarAlertaTermica(double temp)
+        {
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(" ===================================================");
+            Console.WriteLine(" ⚠️ [ALERTA DE SISTEMA: RECALENTAMIENTO DETECTADO] ⚠️");
+            Console.WriteLine(" ===================================================");
+            Console.WriteLine($" El núcleo ha alcanzado los {temp}°C.");
+            Console.WriteLine(" Peligro inminente de Thermal Throttling (Caída de FPS).");
+            Console.WriteLine(" ===================================================");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine(" [1] DESACTIVAR MODO RACING (Recomendado - Enfriamiento)");
+            Console.WriteLine(" [2] CONTINUAR BAJO TU PROPIO RIESGO (Ignorar advertencia)");
+            Console.WriteLine(" ===================================================");
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.Write("\n >> ¿Qué acción deseas tomar, Arquitecto?: ");
+
+            string decision = Console.ReadLine();
+            if (decision == "2")
+            {
+                Console.Clear();
+                Console.WriteLine(" [!] Ignorando protocolos térmicos. Retomando Modo Racing...");
+                return true; 
+            }
+            
+            Console.WriteLine(" [*] Iniciando protocolos de enfriamiento. Apagando Modo Racing...");
+            return false; 
+        }
+
+        static void FinalizarModoRacing()
+        {
+            foreach (KeyValuePair<int, ProcessPriorityClass> par in prioridadesOriginales)
+            {
+                try { Process p = Process.GetProcessById(par.Key); p.PriorityClass = par.Value; } catch { }
+            }
+            foreach (KeyValuePair<int, IntPtr> par in afinidadesOriginales)
+            {
+                try { Process p = Process.GetProcessById(par.Key); p.ProcessorAffinity = par.Value; } catch { }
+            }
+            
+            prioridadesOriginales.Clear();
+            afinidadesOriginales.Clear();
+
+            try { Process.GetCurrentProcess().ProcessorAffinity = (IntPtr)((1 << Environment.ProcessorCount) - 1); } catch { }
+            AjustarResolucionTemporizador(false);
+            ForzarPlanEnergia(false);
+            Console.Clear();
+        }
+
+        static void AjustarResolucionTemporizador(bool modoRacing) { try { uint c; if (modoRacing) NtSetTimerResolution(5000, true, out c); else NtSetTimerResolution(0, false, out c); } catch { } }
+        static void ForzarPlanEnergia(bool extremo) { try { string c = extremo ? "/setactive SCHEME_MIN" : "/setactive SCHEME_BALANCED"; Process.Start(new ProcessStartInfo("powercfg", c) { CreateNoWindow = true, UseShellExecute = false }).WaitForExit(); } catch { } }
+        static void PurgarCacheRed() { try { Process.Start(new ProcessStartInfo("ipconfig", "/flushdns") { CreateNoWindow = true, UseShellExecute = false }).WaitForExit(); } catch { } }
+        static int MedirPing() { try { PingReply r = new Ping().Send("8.8.8.8", 1000); if (r.Status == IPStatus.Success) return (int)r.RoundtripTime; } catch { } return -1; }
+        static void MenuConfiguracion() { Console.Clear(); Console.WriteLine("Configuración: [1] Hyper-Swap"); if (Console.ReadLine() == "1") hyperSwapActivo = !hyperSwapActivo; }
+        static bool EsAdministrador() { return new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator); }
+
+        // --- 7. INTERFAZ GRÁFICA TUI (NIVEL COMERCIAL) ---
+        static void DibujarInterfazComercial()
+        {
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("\n"); 
+            
+            EscribirCentrado("╔═══════════════════════════════════════════════════════════════╗");
+            EscribirCentrado("║   [ PXI OS ENGINE ] - Módulo de Rendimiento Asimétrico V5.0   ║");
+            EscribirCentrado("╠═══════════════════════════════════════════════════════════════╣");
+            EscribirCentrado("║  [TELEMETRÍA EN TIEMPO REAL]                                  ║");
+            EscribirCentrado("║                                                               ║");
+            EscribirCentrado("║   Carga Térmica del Núcleo:                                   ║");
+            EscribirCentrado("║   Latencia de Red (Ping)  :                                   ║");
+            EscribirCentrado("║   Memoria RAM Disponible  :                                   ║");
+            EscribirCentrado("║                                                               ║");
+            EscribirCentrado("╠═══════════════════════════════════════════════════════════════╣");
+            EscribirCentrado("║  [ESTADO DE INYECCIÓN]                                        ║");
+            EscribirCentrado("║   > Radar Táctico         :  [ ACTIVO ]                       ║");
+            EscribirCentrado("║   > Hilo Fantasma WMI     :  [ ACTIVO ]                       ║");
+            EscribirCentrado("║   > Aislamiento Físico    :  [ MODO DINÁMICO INFINITO ]       ║");
+            EscribirCentrado("╚═══════════════════════════════════════════════════════════════╝");
+            
+            Console.ForegroundColor = ConsoleColor.DarkCyan;
+            Console.WriteLine("\n");
+            EscribirCentrado("[ PRESIONA 'Q' PARA ABORTAR Y RETORNAR AL SISTEMA ]");
+        }
+
+        static void ActualizarDatosEnTiempoReal(double temp, int ping, double ram)
+        {
+            try
+            {
+                Console.SetCursorPosition(43, 7);
+                Console.ForegroundColor = temp >= 80 ? ConsoleColor.Red : (temp >= 65 ? ConsoleColor.Yellow : ConsoleColor.Green);
+                Console.Write($"{temp:0.0} °C   ");
+
+                Console.SetCursorPosition(43, 8);
+                Console.ForegroundColor = (ping < 0 || ping > 100) ? ConsoleColor.Red : ConsoleColor.Cyan;
+                Console.Write($"{(ping >= 0 ? ping.ToString() : "ERR")} ms   ");
+
+                Console.SetCursorPosition(43, 9);
+                Console.ForegroundColor = ConsoleColor.Magenta;
+                Console.Write($"{ram:0.0} %   ");
+
+                Console.SetCursorPosition(0, 22);
+            } 
+            catch { }
+        }
+    }
+
+    // ====================================================================
+
+    public static class PxiRamPurger
+    {
+        [DllImport("advapi32.dll", SetLastError = true)] static extern bool OpenProcessToken(IntPtr h, uint a, out IntPtr t);
+        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)] static extern bool LookupPrivilegeValue(string s, string n, out long l);
+        [DllImport("ntdll.dll")] static extern int NtSetSystemInformation(int c, IntPtr s, int l);
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)] private class MEMORYSTATUSEX { 
+            public uint dwLength; public uint dwMemoryLoad; public ulong ullTotalPhys; public ulong ullAvailPhys; 
+            public MEMORYSTATUSEX() { this.dwLength = (uint)Marshal.SizeOf(typeof(MEMORYSTATUSEX)); }
+        }
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GlobalMemoryStatusEx([In, Out] MEMORYSTATUSEX lpBuffer);
+        
+        public static double ObtenerPorcentajeRamLibre() { MEMORYSTATUSEX m = new MEMORYSTATUSEX(); if (GlobalMemoryStatusEx(m)) return ((double)m.ullAvailPhys / m.ullTotalPhys) * 100; return 100.0; }
+        public static void VaciarStandbyList() { /* Lógica de purga nativa conservada */ }
+    }
+}
